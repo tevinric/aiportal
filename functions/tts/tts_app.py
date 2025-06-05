@@ -4,12 +4,8 @@ import azure.cognitiveservices.speech as speechsdk
 import io
 from datetime import datetime
 import Functions
-import shutil
 
 def text_to_speech(client):
-    # Clean up temp files at the start of each session/use
-    _cleanup_temp_files()
-    
     # Display header
     col1, col2, col3, col4, col5 = st.columns(5)
     
@@ -85,7 +81,7 @@ def text_to_speech(client):
     st.sidebar.header("Voice Style (Optional)")
     voice_style = st.sidebar.selectbox(
         "Voice Style",
-        ["Default"],
+        ["Default", "Cheerful", "Sad", "Excited", "Friendly", "Terrified", "Angry", "Gentle"],
         index=0,
         help="Apply emotional styling to the voice"
     )
@@ -177,7 +173,7 @@ def text_to_speech(client):
 
 def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style=None, rate=1.0):
     """
-    Synthesize speech and keep the audio data in memory
+    Synthesize speech and keep the audio data in memory using AudioDataStream
     
     Args:
         text (str): Text to synthesize
@@ -191,7 +187,7 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     """
     
     # Configuration
-    speech_key = Functions.tts_key  # Using a new deployment from south african north for this test
+    speech_key = Functions.stt_api_key  # Use the speech-to-text key for TTS as well
     service_region = "southafricanorth"  # Azure region
     
     # Create speech config
@@ -274,25 +270,8 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     # Set audio output format
     speech_config.set_speech_synthesis_output_format(format_config['format'])
     
-    # Create a memory stream for the audio output
-    audio_stream = io.BytesIO()
-    
-    # Create a callback to handle audio data
-    def audio_data_callback(evt):
-        audio_stream.write(evt.audio_data)
-    
-    # Create a synthesizer with a pull audio output stream
-    stream_config = speechsdk.audio.PullAudioOutputStream()
-    audio_config = speechsdk.audio.AudioOutputConfig(stream=stream_config)
-    
-    # Create synthesizer
-    speech_synthesizer = speechsdk.SpeechSynthesizer(
-        speech_config=speech_config, 
-        audio_config=audio_config
-    )
-    
-    # Connect the callback
-    stream_config.read = audio_data_callback
+    # Create synthesizer without audio config (will use default)
+    speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
     
     # Prepare SSML with style and rate if specified
     if style or rate != 1.0:
@@ -314,9 +293,26 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     
     # Check result
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        # Get audio data from the memory stream
-        audio_stream.seek(0)
-        audio_bytes = audio_stream.read()
+        # Create an audio data stream from the result
+        audio_data_stream = speechsdk.AudioDataStream(result)
+        
+        # Create a memory buffer to hold the audio data
+        audio_buffer = io.BytesIO()
+        
+        # Read the audio data in chunks and write to the buffer
+        buffer_size = 4096  # 4KB chunks
+        audio_chunk = bytes(buffer_size)
+        
+        # Fill buffer with audio data
+        while True:
+            audio_chunk = audio_data_stream.read_data(buffer_size)
+            if not audio_chunk:
+                break
+            audio_buffer.write(audio_chunk)
+        
+        # Reset buffer position and read all data
+        audio_buffer.seek(0)
+        audio_bytes = audio_buffer.read()
         
         # Return success, audio bytes, and file extension
         return True, audio_bytes, format_config['extension']
@@ -327,21 +323,4 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
             print(f"Error details: {cancellation_details.error_details}")
         return False, None, None
     
-<<<<<<< HEAD
-    return False, None
-
-def _cleanup_temp_files():
-    temp_dir = "temp_audio"
-    if os.path.exists(temp_dir):
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception as e:
-            print(f"Error cleaning up temp files: {e}")
-
-# Register cleanup on session end and disconnect
-if hasattr(st, "on_event"):
-    st.on_event("shutdown", _cleanup_temp_files)
-    st.on_event("disconnect", _cleanup_temp_files)
-=======
     return False, None, None
->>>>>>> 2cc0fc57f1d1959a7e2024cf03851fe6214eb926
