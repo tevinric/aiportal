@@ -327,21 +327,3 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
             print(f"Error details: {cancellation_details.error_details}")
         return False, None, None
     
-<<<<<<< HEAD
-    return False, None
-
-def _cleanup_temp_files():
-    temp_dir = "temp_audio"
-    if os.path.exists(temp_dir):
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception as e:
-            print(f"Error cleaning up temp files: {e}")
-
-# Register cleanup on session end and disconnect
-if hasattr(st, "on_event"):
-    st.on_event("shutdown", _cleanup_temp_files)
-    st.on_event("disconnect", _cleanup_temp_files)
-=======
-    return False, None, None
->>>>>>> 2cc0fc57f1d1959a7e2024cf03851fe6214eb926
