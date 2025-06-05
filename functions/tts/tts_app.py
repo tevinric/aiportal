@@ -293,52 +293,48 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     
     # Check result
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        # Create an audio data stream from the result
-        audio_data_stream = speechsdk.AudioDataStream(result)
-        
-        # Create a memory buffer to hold the audio data
-        audio_buffer = io.BytesIO()
-        
-        # Get the total length of the audio data
-        total_length = audio_data_stream.get_length()
-        
-        # IMPROVED: Save the audio stream to a file in memory
-        # This uses the SDK's built-in save_to_wav_file but redirects to our BytesIO buffer
         try:
-            # For WAV format, we can use a more direct approach
-            if format_config['extension'] == 'wav':
-                # First reset the stream position
-                audio_data_stream.seek_to_beginning()
+            # Create an audio data stream from the result
+            audio_data_stream = speechsdk.AudioDataStream(result)
+            
+            # Create a memory buffer to hold the audio data
+            audio_buffer = io.BytesIO()
+            
+            # IMPROVED: Using a simpler, more robust chunking approach
+            # We'll use the same approach for all formats
+            buffer_size = 4096  # 4KB buffer is enough
+            
+            # Make sure we're at the beginning of the stream
+            audio_data_stream.seek_to_beginning()
+            
+            # Read audio data in chunks
+            total_bytes_read = 0
+            while True:
+                # Create a new chunk buffer for each read
+                chunk = bytearray(buffer_size)
+                bytes_read = audio_data_stream.read_data(chunk)
                 
-                # Read all data at once into a bytes object
-                all_bytes = bytes(total_length)
-                bytes_read = audio_data_stream.read_data(all_bytes)
-                audio_buffer.write(all_bytes[:bytes_read])
+                if bytes_read == 0:
+                    break  # End of stream
+                
+                # Write only the valid portion of the chunk
+                audio_buffer.write(chunk[:bytes_read])
+                total_bytes_read += bytes_read
+            
+            # If we read any data
+            if total_bytes_read > 0:
+                # Reset buffer position to beginning
+                audio_buffer.seek(0)
+                audio_bytes = audio_buffer.getvalue()
+                
+                # Return success, audio bytes, and file extension
+                return True, audio_bytes, format_config['extension']
             else:
-                # For other formats, read in larger chunks
-                buffer_size = 16384  # Use larger 16KB chunks
-                audio_data_stream.seek_to_beginning()
+                print("No audio data was read from the stream")
+                return False, None, None
                 
-                while True:
-                    # Read a chunk of data
-                    chunk = bytearray(buffer_size)
-                    bytes_read = audio_data_stream.read_data(chunk)
-                    
-                    if bytes_read == 0:
-                        break
-                    
-                    # Write only the bytes that were actually read
-                    audio_buffer.write(chunk[:bytes_read])
-            
-            # Reset buffer position to beginning
-            audio_buffer.seek(0)
-            audio_bytes = audio_buffer.getvalue()
-            
-            # Return success, audio bytes, and file extension
-            return True, audio_bytes, format_config['extension']
-            
         except Exception as e:
-            print(f"Error saving audio data: {e}")
+            print(f"Error processing audio data: {e}")
             return False, None, None
             
     elif result.reason == speechsdk.ResultReason.Canceled:
