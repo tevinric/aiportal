@@ -1,9 +1,7 @@
 # functions/tts/tts_app.py
 import streamlit as st
 import azure.cognitiveservices.speech as speechsdk
-import os
 import io
-import time
 from datetime import datetime
 import Functions
 
@@ -115,14 +113,8 @@ def text_to_speech(client):
         
         # Display processing message
         with st.spinner("Generating speech..."):
-            # Create unique filename based on timestamp
+            # Create timestamp for filename (used only for downloads)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            base_filename = f"speech_{timestamp}"
-            temp_dir = "temp_audio"
-            
-            # Create temp directory if it doesn't exist
-            os.makedirs(temp_dir, exist_ok=True)
-            output_path = os.path.join(temp_dir, base_filename)
             
             try:
                 # Get selected voice and format
@@ -130,9 +122,8 @@ def text_to_speech(client):
                 audio_format = format_options[selected_format]
                 
                 # Call the speech synthesis function
-                result, file_path = synthesize_speech(
+                result, audio_bytes, audio_extension = synthesize_speech_in_memory(
                     text_input, 
-                    output_path, 
                     audio_format, 
                     voice_name,
                     voice_style if voice_style != "Default" else None,
@@ -145,10 +136,6 @@ def text_to_speech(client):
                     
                     # Display audio player
                     st.subheader("Listen to Generated Speech")
-                    
-                    # Read the audio file
-                    with open(file_path, "rb") as audio_file:
-                        audio_bytes = audio_file.read()
                     
                     # Determine MIME type based on format
                     if "mp3" in audio_format:
@@ -166,39 +153,37 @@ def text_to_speech(client):
                     st.audio(audio_bytes, format=mime_type)
                     
                     # Create download button
-                    extension = file_path.split(".")[-1]
-                    download_filename = f"speech_audio_{timestamp}.{extension}"
+                    download_filename = f"speech_audio_{timestamp}.{audio_extension}"
                     
                     st.download_button(
-                        label=f"Download {extension.upper()} File",
+                        label=f"Download {audio_extension.upper()} File",
                         data=audio_bytes,
                         file_name=download_filename,
                         mime=mime_type
                     )
                     
                     # Display file info
-                    file_size_kb = os.path.getsize(file_path) / 1024
-                    st.info(f"File Size: {file_size_kb:.2f} KB | Format: {extension.upper()} | Voice: {selected_persona}")
+                    file_size_kb = len(audio_bytes) / 1024
+                    st.info(f"File Size: {file_size_kb:.2f} KB | Format: {audio_extension.upper()} | Voice: {selected_persona}")
                 else:
                     st.error("Failed to generate speech. Please try again with different text or settings.")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
                 st.info("Please try again with shorter text or different settings.")
 
-def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, style=None, rate=1.0):
+def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style=None, rate=1.0):
     """
-    Synthesize speech and save to file in specified format
+    Synthesize speech and keep the audio data in memory
     
     Args:
         text (str): Text to synthesize
-        output_file (str): Output file path (without extension)
         audio_format (str): Audio format - 'wav', 'mp3', 'ogg', etc.
         voice_name (str): Voice name to use
         style (str): Voice style (emotional styling)
         rate (float): Speech rate (0.5-2.0)
         
     Returns:
-        tuple: (success_bool, output_filepath)
+        tuple: (success_bool, audio_bytes, file_extension)
     """
     
     # Configuration
@@ -218,59 +203,59 @@ def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, st
     format_configs = {
         'wav': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm,
-            'extension': '.wav'
+            'extension': 'wav'
         },
         'wav_8k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Riff8Khz16BitMonoPcm,
-            'extension': '.wav'
+            'extension': 'wav'
         },
         'wav_16k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Riff16Khz16BitMonoPcm,
-            'extension': '.wav'
+            'extension': 'wav'
         },
         'wav_48k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Riff48Khz16BitMonoPcm,
-            'extension': '.wav'
+            'extension': 'wav'
         },
         'mp3': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz128KBitRateMonoMp3,
-            'extension': '.mp3'
+            'extension': 'mp3'
         },
         'mp3_24k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3,
-            'extension': '.mp3'
+            'extension': 'mp3'
         },
         'mp3_16k_64k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz64KBitRateMonoMp3,
-            'extension': '.mp3'
+            'extension': 'mp3'
         },
         'mp3_16k_32k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3,
-            'extension': '.mp3'
+            'extension': 'mp3'
         },
         'ogg': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Ogg16Khz16BitMonoOpus,
-            'extension': '.ogg'
+            'extension': 'ogg'
         },
         'ogg_24k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Ogg24Khz16BitMonoOpus,
-            'extension': '.ogg'
+            'extension': 'ogg'
         },
         'webm': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Webm16Khz16BitMonoOpus,
-            'extension': '.webm'
+            'extension': 'webm'
         },
         'webm_24k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Webm24Khz16BitMonoOpus,
-            'extension': '.webm'
+            'extension': 'webm'
         },
         'raw': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm,
-            'extension': '.raw'
+            'extension': 'raw'
         },
         'raw_24k': {
             'format': speechsdk.SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm,
-            'extension': '.raw'
+            'extension': 'raw'
         }
     }
     
@@ -278,24 +263,32 @@ def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, st
     if audio_format not in format_configs:
         print(f"Unsupported format: {audio_format}")
         print(f"Available formats: {list(format_configs.keys())}")
-        return False, None
+        return False, None, None
     
     format_config = format_configs[audio_format]
     
     # Set audio output format
     speech_config.set_speech_synthesis_output_format(format_config['format'])
     
-    # Create output file path with appropriate extension
-    output_path = output_file + format_config['extension']
+    # Create a memory stream for the audio output
+    audio_stream = io.BytesIO()
     
-    # Create audio output config for file
-    audio_config = speechsdk.audio.AudioOutputConfig(filename=output_path)
+    # Create a callback to handle audio data
+    def audio_data_callback(evt):
+        audio_stream.write(evt.audio_data)
+    
+    # Create a synthesizer with a pull audio output stream
+    stream_config = speechsdk.audio.PullAudioOutputStream()
+    audio_config = speechsdk.audio.AudioOutputConfig(stream=stream_config)
     
     # Create synthesizer
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config, 
         audio_config=audio_config
     )
+    
+    # Connect the callback
+    stream_config.read = audio_data_callback
     
     # Prepare SSML with style and rate if specified
     if style or rate != 1.0:
@@ -317,12 +310,17 @@ def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, st
     
     # Check result
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        return True, output_path
+        # Get audio data from the memory stream
+        audio_stream.seek(0)
+        audio_bytes = audio_stream.read()
+        
+        # Return success, audio bytes, and file extension
+        return True, audio_bytes, format_config['extension']
     elif result.reason == speechsdk.ResultReason.Canceled:
         cancellation_details = result.cancellation_details
         print(f"Speech synthesis canceled: {cancellation_details.reason}")
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print(f"Error details: {cancellation_details.error_details}")
-        return False, None
+        return False, None, None
     
-    return False, None
+    return False, None, None
