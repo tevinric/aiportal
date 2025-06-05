@@ -172,7 +172,7 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     
     try:
         # Configuration
-        speech_key = Functions.stt_api_key
+        speech_key = Functions.tts_key
         service_region = "southafricanorth"
         
         # Create speech config
