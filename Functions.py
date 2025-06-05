@@ -11,6 +11,7 @@ if config.app_type == 'local_dev':
     endpoint  = os.getenv("endpoint")
     stt_api_key = os.getenv("stt_api_key")
     stt_endpoint = os.getenv("stt_endpoint")
+    tts_key = os.getenv("tts_key")
     
 else:
 
@@ -18,6 +19,7 @@ else:
     endpoint  = config.endpoint
     stt_api_key = config.stt_api_key
     stt_endpoint = config.stt_endpoint
+    tts_key = config.tts_key
 
 
 def create_client():

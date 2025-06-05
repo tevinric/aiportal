@@ -279,7 +279,7 @@ APP_METADATA = {
     "text_to_speech": {
     "name": "Text To Speech",
     "description": "Convert text to natural-sounding speech using advanced AI voice technology",
-    "image_name": "competitor_analysis_cb.png",
+    "image_name": "texttospeech.png",
     "fallback_emoji": "🗣️",
     "category": "Audio Processing",
     "sidebar_value": "Text To Speech",
@@ -508,7 +508,7 @@ def render_app_gallery():
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)        
         
 def main():
-    if st.session_state.get("authenticated", False):
+    # if st.session_state.get("authenticated", False):
     
     # Initialize all session states first
         if "selected_app" not in st.session_state:
@@ -536,7 +536,7 @@ def main():
         
         
         # Tool selection in sidebar (Test Case Generator should not be here)
-        available_tools = ["None", "Business Apps", "ChatGPT", "Document Intelligence", "Audio analysis", "Image Generation", "OCR", "Text To Speech]
+        available_tools = ["None", "Business Apps", "ChatGPT", "Document Intelligence", "Audio analysis", "Image Generation", "OCR", "Text To Speech"]
         selected_tool = st.sidebar.selectbox(
             "AI Tools",
             available_tools,
@@ -673,8 +673,8 @@ def main():
             else:
                 pass
             
-    else:
-        login_ui()
+    # else:
+    #     login_ui()
 
 if __name__ == '__main__':
     if "authenticated" not in st.session_state:

@@ -141,3 +141,4 @@ langchain-community
 langchain-openai
 faiss_cpu
 msal
+azure.cognitiveservices.speech

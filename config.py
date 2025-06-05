@@ -25,6 +25,7 @@ CACB_PASSWORD= os.environ.get("CACB_PASSWORD")
 # SPEECH TO TEXT CONNECTION DETAILS
 stt_api_key = os.environ.get("AZURE_STT_KEY")
 stt_endpoint = os.environ.get("AZURE_STT_ENDPOINT")
+tts_key = os.environ.get("AZURE_TTS_KEY")
 
 # AD DETAILS
 

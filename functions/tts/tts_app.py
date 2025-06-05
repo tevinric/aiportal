@@ -6,8 +6,12 @@ import io
 import time
 from datetime import datetime
 import Functions
+import shutil
 
 def text_to_speech(client):
+    # Clean up temp files at the start of each session/use
+    _cleanup_temp_files()
+    
     # Display header
     col1, col2, col3, col4, col5 = st.columns(5)
     
@@ -83,7 +87,7 @@ def text_to_speech(client):
     st.sidebar.header("Voice Style (Optional)")
     voice_style = st.sidebar.selectbox(
         "Voice Style",
-        ["Default", "Cheerful", "Sad", "Excited", "Friendly", "Terrified", "Angry", "Gentle"],
+        ["Default"],
         index=0,
         help="Apply emotional styling to the voice"
     )
@@ -202,7 +206,7 @@ def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, st
     """
     
     # Configuration
-    speech_key = Functions.stt_api_key  # Use the speech-to-text key for TTS as well
+    speech_key = Functions.tts_key  # Using a new deployment from south african north for this test
     service_region = "southafricanorth"  # Azure region
     
     # Create speech config
@@ -326,3 +330,16 @@ def synthesize_speech(text, output_file, audio_format="mp3", voice_name=None, st
         return False, None
     
     return False, None
+
+def _cleanup_temp_files():
+    temp_dir = "temp_audio"
+    if os.path.exists(temp_dir):
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Error cleaning up temp files: {e}")
+
+# Register cleanup on session end and disconnect
+if hasattr(st, "on_event"):
+    st.on_event("shutdown", _cleanup_temp_files)
+    st.on_event("disconnect", _cleanup_temp_files)
