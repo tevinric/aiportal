@@ -276,7 +276,18 @@ APP_METADATA = {
         "tags": ["Competitor Analysis", "Chatbot", "Comparison"],
         "api_available": False
     },
-
+    "text_to_speech": {
+    "name": "Text To Speech",
+    "description": "Convert text to natural-sounding speech using advanced AI voice technology",
+    "image_name": "competitor_analysis_cb.png",
+    "fallback_emoji": "🗣️",
+    "category": "Audio Processing",
+    "sidebar_value": "Text To Speech",
+    "parent_app": "Text To Speech",
+    "sub_app": None,
+    "tags": ["Audio", "Speech", "Voice", "TTS", "Narration"],
+    "api_available": True
+    }
 }
 
 def load_image(image_name: str) -> Image.Image or None:
@@ -525,7 +536,7 @@ def main():
         
         
         # Tool selection in sidebar (Test Case Generator should not be here)
-        available_tools = ["None", "Business Apps", "ChatGPT", "Document Intelligence", "Audio analysis", "Image Generation", "OCR"]
+        available_tools = ["None", "Business Apps", "ChatGPT", "Document Intelligence", "Audio analysis", "Image Generation", "OCR", "Text To Speech]
         selected_tool = st.sidebar.selectbox(
             "AI Tools",
             available_tools,
@@ -654,6 +665,10 @@ def main():
                 elif doc_app == "Vehicle License Disc":
                     import functions.ocr_apps.vehicle_license_disc as vehicle_license_disc
                     vehicle_license_disc.ocr_vehicle_license()
+
+            elif st.session_state.selected_tool == "Text To Speech":
+                import functions.tts.tts_app as tts_app
+                tts_app.text_to_speech(client)
             
             else:
                 pass
