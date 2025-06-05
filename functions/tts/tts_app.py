@@ -49,16 +49,12 @@ def text_to_speech(client):
         "Australian Male (William)": "en-AU-WilliamNeural"
     }
     
-    # Format selection
+    # Simplified format selection - focusing on browser-compatible formats
     format_options = {
-        "MP3 (Standard Quality)": "mp3",
-        "MP3 (High Quality)": "mp3_24k",
-        "WAV (Standard Quality)": "wav",
-        "WAV (High Quality)": "wav_48k",
-        "OGG (Standard Quality)": "ogg",
-        "OGG (High Quality)": "ogg_24k",
-        "WebM (Standard)": "webm",
-        "WebM (High Quality)": "webm_24k"
+        "MP3 (Recommended)": "mp3",
+        "WAV (High Quality)": "wav",
+        "MP3 (High Quality)": "mp3_hq",
+        "WAV (Standard)": "wav_std"
     }
     
     # UI configuration in the sidebar
@@ -73,7 +69,7 @@ def text_to_speech(client):
     selected_format = st.sidebar.selectbox(
         "Select Output Format",
         list(format_options.keys()),
-        index=1,  # Default to MP3 High Quality
+        index=0,  # Default to MP3 (Recommended)
         help="Choose the audio file format and quality"
     )
     
@@ -122,7 +118,7 @@ def text_to_speech(client):
                 audio_format = format_options[selected_format]
                 
                 # Call the speech synthesis function
-                result, audio_bytes, audio_extension = synthesize_speech_in_memory(
+                result, audio_bytes, audio_extension, mime_type = synthesize_speech_in_memory(
                     text_input, 
                     audio_format, 
                     voice_name,
@@ -130,24 +126,12 @@ def text_to_speech(client):
                     speech_rate
                 )
                 
-                if result:
+                if result and audio_bytes:
                     # Success message
                     st.success("🎉 Speech generated successfully!")
                     
                     # Display audio player
                     st.subheader("Listen to Generated Speech")
-                    
-                    # Determine MIME type based on format
-                    if "mp3" in audio_format:
-                        mime_type = "audio/mpeg"  # More widely supported than audio/mp3
-                    elif "wav" in audio_format:
-                        mime_type = "audio/wav"
-                    elif "ogg" in audio_format:
-                        mime_type = "audio/ogg"
-                    elif "webm" in audio_format:
-                        mime_type = "audio/webm"
-                    else:
-                        mime_type = "audio/mpeg"  # Default fallback
                     
                     # Display audio player
                     st.audio(audio_bytes, format=mime_type)
@@ -173,175 +157,111 @@ def text_to_speech(client):
 
 def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style=None, rate=1.0):
     """
-    Synthesize speech and keep the audio data in memory using AudioDataStream
+    Synthesize speech and keep the audio data in memory
     
     Args:
         text (str): Text to synthesize
-        audio_format (str): Audio format - 'wav', 'mp3', 'ogg', etc.
+        audio_format (str): Audio format - 'wav', 'mp3', etc.
         voice_name (str): Voice name to use
         style (str): Voice style (emotional styling)
         rate (float): Speech rate (0.5-2.0)
         
     Returns:
-        tuple: (success_bool, audio_bytes, file_extension)
+        tuple: (success_bool, audio_bytes, file_extension, mime_type)
     """
     
-    # Configuration
-    speech_key = Functions.stt_api_key  # Use the speech-to-text key for TTS as well
-    service_region = "southafricanorth"  # Azure region
-    
-    # Create speech config
-    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
-    
-    # Set voice if specified
-    if voice_name:
-        speech_config.speech_synthesis_voice_name = voice_name
-    else:
-        speech_config.speech_synthesis_voice_name = "en-ZA-LeahNeural"  # Default voice
-    
-    # Audio format configurations
-    format_configs = {
-        'wav': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm,
-            'extension': 'wav'
-        },
-        'wav_8k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Riff8Khz16BitMonoPcm,
-            'extension': 'wav'
-        },
-        'wav_16k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Riff16Khz16BitMonoPcm,
-            'extension': 'wav'
-        },
-        'wav_48k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Riff48Khz16BitMonoPcm,
-            'extension': 'wav'
-        },
-        'mp3': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz128KBitRateMonoMp3,
-            'extension': 'mp3'
-        },
-        'mp3_24k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3,
-            'extension': 'mp3'
-        },
-        'mp3_16k_64k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz64KBitRateMonoMp3,
-            'extension': 'mp3'
-        },
-        'mp3_16k_32k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3,
-            'extension': 'mp3'
-        },
-        'ogg': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Ogg16Khz16BitMonoOpus,
-            'extension': 'ogg'
-        },
-        'ogg_24k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Ogg24Khz16BitMonoOpus,
-            'extension': 'ogg'
-        },
-        'webm': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Webm16Khz16BitMonoOpus,
-            'extension': 'webm'
-        },
-        'webm_24k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Webm24Khz16BitMonoOpus,
-            'extension': 'webm'
-        },
-        'raw': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm,
-            'extension': 'raw'
-        },
-        'raw_24k': {
-            'format': speechsdk.SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm,
-            'extension': 'raw'
+    try:
+        # Configuration
+        speech_key = Functions.stt_api_key
+        service_region = "southafricanorth"
+        
+        # Create speech config
+        speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
+        
+        # Set voice if specified
+        if voice_name:
+            speech_config.speech_synthesis_voice_name = voice_name
+        else:
+            speech_config.speech_synthesis_voice_name = "en-ZA-LeahNeural"
+        
+        # Audio format configurations - simplified and tested
+        format_configs = {
+            'mp3': {
+                'format': speechsdk.SpeechSynthesisOutputFormat.Audio16Khz128KBitRateMonoMp3,
+                'extension': 'mp3',
+                'mime_type': 'audio/mpeg'
+            },
+            'mp3_hq': {
+                'format': speechsdk.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3,
+                'extension': 'mp3',
+                'mime_type': 'audio/mpeg'
+            },
+            'wav': {
+                'format': speechsdk.SpeechSynthesisOutputFormat.Riff48Khz16BitMonoPcm,
+                'extension': 'wav',
+                'mime_type': 'audio/wav'
+            },
+            'wav_std': {
+                'format': speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm,
+                'extension': 'wav',
+                'mime_type': 'audio/wav'
+            }
         }
-    }
-    
-    # Get format configuration
-    if audio_format not in format_configs:
-        print(f"Unsupported format: {audio_format}")
-        print(f"Available formats: {list(format_configs.keys())}")
-        return False, None, None
-    
-    format_config = format_configs[audio_format]
-    
-    # Set audio output format
-    speech_config.set_speech_synthesis_output_format(format_config['format'])
-    
-    # Create synthesizer without audio config (will use stream output)
-    speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
-    
-    # Prepare SSML with style and rate if specified
-    if style or rate != 1.0:
-        ssml_text = f"""
-        <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="en-US">
-            <voice name="{speech_config.speech_synthesis_voice_name}">
-                <prosody rate="{rate}">
-                    {f'<mstts:express-as style="{style}">' if style else ''}
-                    {text}
-                    {f'</mstts:express-as>' if style else ''}
-                </prosody>
-            </voice>
-        </speak>
-        """
-        result = speech_synthesizer.speak_ssml_async(ssml_text).get()
-    else:
-        # Synthesize speech using plain text
-        result = speech_synthesizer.speak_text_async(text).get()
-    
-    # Check result
-    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        try:
-            # Create an audio data stream from the result
-            audio_data_stream = speechsdk.AudioDataStream(result)
+        
+        # Get format configuration
+        if audio_format not in format_configs:
+            print(f"Unsupported format: {audio_format}")
+            return False, None, None, None
+        
+        format_config = format_configs[audio_format]
+        
+        # Set audio output format
+        speech_config.set_speech_synthesis_output_format(format_config['format'])
+        
+        # Create synthesizer without audio config (will use result.audio_data)
+        speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+        
+        # Prepare SSML with style and rate if specified
+        if style or rate != 1.0:
+            # Clean the text to avoid XML issues
+            clean_text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
             
-            # Create a memory buffer to hold the audio data
-            audio_buffer = io.BytesIO()
+            ssml_text = f"""
+            <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="en-US">
+                <voice name="{speech_config.speech_synthesis_voice_name}">
+                    <prosody rate="{rate}">
+                        {f'<mstts:express-as style="{style}">' if style else ''}
+                        {clean_text}
+                        {f'</mstts:express-as>' if style else ''}
+                    </prosody>
+                </voice>
+            </speak>
+            """
+            result = speech_synthesizer.speak_ssml_async(ssml_text).get()
+        else:
+            # Synthesize speech using plain text
+            result = speech_synthesizer.speak_text_async(text).get()
+        
+        # Check result
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            # IMPROVED: Direct access to audio data
+            audio_bytes = result.audio_data
             
-            # IMPROVED: Using a simpler, more robust chunking approach
-            # We'll use the same approach for all formats
-            buffer_size = 4096  # 4KB buffer is enough
-            
-            # Make sure we're at the beginning of the stream
-            audio_data_stream.seek_to_beginning()
-            
-            # Read audio data in chunks
-            total_bytes_read = 0
-            while True:
-                # Create a new chunk buffer for each read
-                chunk = bytearray(buffer_size)
-                bytes_read = audio_data_stream.read_data(chunk)
-                
-                if bytes_read == 0:
-                    break  # End of stream
-                
-                # Write only the valid portion of the chunk
-                audio_buffer.write(chunk[:bytes_read])
-                total_bytes_read += bytes_read
-            
-            # If we read any data
-            if total_bytes_read > 0:
-                # Reset buffer position to beginning
-                audio_buffer.seek(0)
-                audio_bytes = audio_buffer.getvalue()
-                
-                # Return success, audio bytes, and file extension
-                return True, audio_bytes, format_config['extension']
+            if audio_bytes and len(audio_bytes) > 0:
+                return True, audio_bytes, format_config['extension'], format_config['mime_type']
             else:
-                print("No audio data was read from the stream")
-                return False, None, None
+                print("No audio data received")
+                return False, None, None, None
                 
-        except Exception as e:
-            print(f"Error processing audio data: {e}")
-            return False, None, None
-            
-    elif result.reason == speechsdk.ResultReason.Canceled:
-        cancellation_details = result.cancellation_details
-        print(f"Speech synthesis canceled: {cancellation_details.reason}")
-        if cancellation_details.reason == speechsdk.CancellationReason.Error:
-            print(f"Error details: {cancellation_details.error_details}")
-        return False, None, None
-    
-    return False, None, None
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            print(f"Speech synthesis canceled: {cancellation_details.reason}")
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print(f"Error details: {cancellation_details.error_details}")
+            return False, None, None, None
+        
+        return False, None, None, None
+        
+    except Exception as e:
+        print(f"Exception in synthesize_speech_in_memory: {e}")
+        return False, None, None, None
