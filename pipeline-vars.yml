@@ -1,0 +1,11 @@
+variables:
+    # APP CONFIG VARS
+    applicationName: aiapp-dev
+    teamName: dna
+
+    # AZURE CONFIG VARS
+    azureSubscriptionServiceConnection: 'Data Science Dev/Test Service Connection'
+    webAppName: 'aiapp-dev'
+
+    # ACR CONFIG VARS
+    containerRegistryServiceConnection: 'DNACRDEV'

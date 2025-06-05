@@ -1,0 +1,84 @@
+# Deploy pipeline to Azure Web App
+# Start with a pipeline that deploys the code to an Azure Web App
+# Add steps that build, run tests, deploy, and more:
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/targets/webapp?view=azure-devops&tabs=yaml
+
+trigger:
+- master
+
+variables:
+  
+  webAppName: 'aiapp-dev'
+
+  vmImageName: ubuntu-latest
+
+  environmentName: 'Dev'
+
+  projectRoot: $(System.DefaultWorkingDirectory)
+
+  pythonVersion: '3.11'
+
+stages:
+- stage: Build
+  displayName: Build Stage
+  jobs:
+  - job: BuildJob
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+       versionSpec: '$(pythonVersion)'
+      displayName: 'Use Python $(pythonVersion)'
+      
+    - script: |
+        echo ls
+        ls
+        python -m venv antenv
+        echo ls antenv/
+        ls antenv/
+        source antenv/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install setup 
+        python -m pip install -r ./requirements.txt
+        echo ls
+        ls
+      workingDirectory: $(projectRoot)
+      displayName: "Install requirements"
+    
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+        replaceExistingArchive: true
+    
+    - upload: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+      displayName: 'Upload package'
+      artifact: drop
+      
+- stage: Deploy
+  displayName: 'Deploy Web App'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DeploymentJob
+    pool: 'Container Agents'
+    environment: $(environmentName)
+    strategy:
+     runOnce:
+         deploy:
+          steps:
+               
+              - task: AzureWebApp@1
+                displayName: 'Deploy azure web app'
+                inputs:
+                  azureSubscription: 'Data Science Dev/Test Service Connection'
+                  appType: 'webAppLinux'
+                  appName: '$(webAppName)'
+                  package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+                  startUpCommand: 'python -m streamlit run app.py --server.port 8000'
+
+# /home/site/wwwroot/

@@ -1,0 +1,12 @@
+flask 
+flask_cors 
+werkzeug 
+openai 
+azure-core
+azure-identity 
+python-docx 
+pandas
+Pillow 
+pytesseract 
+pymupdf  
+python-dotenv
