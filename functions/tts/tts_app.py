@@ -139,7 +139,7 @@ def text_to_speech(client):
                     
                     # Determine MIME type based on format
                     if "mp3" in audio_format:
-                        mime_type = "audio/mp3"
+                        mime_type = "audio/mpeg"  # More widely supported than audio/mp3
                     elif "wav" in audio_format:
                         mime_type = "audio/wav"
                     elif "ogg" in audio_format:
@@ -147,7 +147,7 @@ def text_to_speech(client):
                     elif "webm" in audio_format:
                         mime_type = "audio/webm"
                     else:
-                        mime_type = "audio/mpeg"
+                        mime_type = "audio/mpeg"  # Default fallback
                     
                     # Display audio player
                     st.audio(audio_bytes, format=mime_type)
@@ -270,7 +270,7 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
     # Set audio output format
     speech_config.set_speech_synthesis_output_format(format_config['format'])
     
-    # Create synthesizer without audio config (will use default)
+    # Create synthesizer without audio config (will use stream output)
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
     
     # Prepare SSML with style and rate if specified
@@ -299,32 +299,53 @@ def synthesize_speech_in_memory(text, audio_format="mp3", voice_name=None, style
         # Create a memory buffer to hold the audio data
         audio_buffer = io.BytesIO()
         
-        # Read the audio data in chunks and write to the buffer
-        buffer_size = 4096  # 4KB chunks
-        audio_chunk = bytes(buffer_size)
+        # Get the total length of the audio data
+        total_length = audio_data_stream.get_length()
         
-        # Fill buffer with audio data
-        while True:
-            audio_chunk = audio_data_stream.read_data(buffer_size)
-            if not audio_chunk:
-                break
-            audio_buffer.write(audio_chunk)
-        
-        # Reset buffer position and read all data
-        audio_buffer.seek(0)
-        audio_bytes = audio_buffer.read()
-        
-        # Return success, audio bytes, and file extension
-        return True, audio_bytes, format_config['extension']
+        # IMPROVED: Save the audio stream to a file in memory
+        # This uses the SDK's built-in save_to_wav_file but redirects to our BytesIO buffer
+        try:
+            # For WAV format, we can use a more direct approach
+            if format_config['extension'] == 'wav':
+                # First reset the stream position
+                audio_data_stream.seek_to_beginning()
+                
+                # Read all data at once into a bytes object
+                all_bytes = bytes(total_length)
+                bytes_read = audio_data_stream.read_data(all_bytes)
+                audio_buffer.write(all_bytes[:bytes_read])
+            else:
+                # For other formats, read in larger chunks
+                buffer_size = 16384  # Use larger 16KB chunks
+                audio_data_stream.seek_to_beginning()
+                
+                while True:
+                    # Read a chunk of data
+                    chunk = bytearray(buffer_size)
+                    bytes_read = audio_data_stream.read_data(chunk)
+                    
+                    if bytes_read == 0:
+                        break
+                    
+                    # Write only the bytes that were actually read
+                    audio_buffer.write(chunk[:bytes_read])
+            
+            # Reset buffer position to beginning
+            audio_buffer.seek(0)
+            audio_bytes = audio_buffer.getvalue()
+            
+            # Return success, audio bytes, and file extension
+            return True, audio_bytes, format_config['extension']
+            
+        except Exception as e:
+            print(f"Error saving audio data: {e}")
+            return False, None, None
+            
     elif result.reason == speechsdk.ResultReason.Canceled:
         cancellation_details = result.cancellation_details
         print(f"Speech synthesis canceled: {cancellation_details.reason}")
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print(f"Error details: {cancellation_details.error_details}")
         return False, None, None
-<<<<<<< HEAD
-    
-=======
     
     return False, None, None
->>>>>>> 58d78aa717a8c212d059c3363c85d03c4e425524
