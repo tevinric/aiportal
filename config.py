@@ -28,9 +28,13 @@ stt_endpoint = os.environ.get("AZURE_STT_ENDPOINT")
 tts_key = os.environ.get("AZURE_TTS_KEY")
 
 # AD DETAILS
-
 AAD_CLIENT_ID = os.environ.get("AAD_CLIENT_ID")
 AAD_CLIENT_SECRET = os.environ.get("AAD_CLIENT_SECRET")
 AAD_TENANT_ID = os.environ.get("AAD_TENANT_ID")
 REDIRECT_URI = os.environ.get("REDIRECT_URI")
 
+# SQL SERVER DETAILS
+SQL_SERVER = os.environ.get("SQL_SERVER")
+SQL_DATABASE = os.environ.get("SQL_DATABASE")
+SQL_USERNAME = os.environ.get("SQL_USERNAME")
+SQL_PASSWORD = os.environ.get("SQL_PASSWORD")
