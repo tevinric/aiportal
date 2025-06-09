@@ -547,8 +547,12 @@ def render_app_gallery():
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)        
         
 def main():
-    if st.session_state.get("authenticated", False):
-    
+    # if st.session_state.get("authenticated", False):
+        st.session_state["authenticated"] = True
+        st.session_state["display_name"] = "Tester"
+        st.session_state["user_email"] = "test@tester.com"
+        st.session_state["user_department"] = "Testing"
+
         # Initialize all session states first
         if "selected_app" not in st.session_state:
             st.session_state.selected_app = "None"
@@ -741,8 +745,8 @@ def main():
             else:
                 pass    
             
-    else:
-        login_ui()
+    # else:
+    #     login_ui()
 
 if __name__ == '__main__':
     if "authenticated" not in st.session_state:

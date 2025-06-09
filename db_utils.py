@@ -38,11 +38,11 @@ def ensure_tables_exist():
             
         cursor = conn.cursor()
         
-        # Create logins table if it doesn't exist
+        # Create ai_portal_logins table if it doesn't exist
         cursor.execute("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'logins')
+        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ai_portal_logins')
         BEGIN
-            CREATE TABLE logins (
+            CREATE TABLE ai_portal_logins (
                 id INT IDENTITY(1,1) PRIMARY KEY,
                 display_name NVARCHAR(255),
                 username NVARCHAR(255),
@@ -57,11 +57,11 @@ def ensure_tables_exist():
         END
         """)
         
-        # Create usage table if it doesn't exist
+        # Create ai_portal_usage table if it doesn't exist
         cursor.execute("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'usage')
+        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ai_portal_usage')
         BEGIN
-            CREATE TABLE usage (
+            CREATE TABLE ai_portal_usage (
                 id INT IDENTITY(1,1) PRIMARY KEY,
                 display_name NVARCHAR(255),
                 username NVARCHAR(255),
@@ -85,7 +85,7 @@ def ensure_tables_exist():
         return False
 
 def log_user_login(user_data):
-    """Log user login information to the 'logins' table"""
+    """Log user login information to the 'ai_portal_logins' table"""
     try:
         # Extract user data
         display_name = user_data.get("displayName", "Unknown")
@@ -116,7 +116,7 @@ def log_user_login(user_data):
         
         # Insert login record
         cursor.execute("""
-        INSERT INTO logins (display_name, username, email, department, login_time, reporting_period, client_ip, user_agent, session_id)
+        INSERT INTO ai_portal_logins (display_name, username, email, department, login_time, reporting_period, client_ip, user_agent, session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             display_name,
@@ -144,7 +144,7 @@ def log_user_login(user_data):
         return False
 
 def log_app_usage(app_id, app_metadata=None):
-    """Log application usage information to the 'usage' table"""
+    """Log application usage information to the 'ai_portal_usage' table"""
     try:
         if not st.session_state.get("authenticated", False):
             return False
@@ -199,7 +199,7 @@ def log_app_usage(app_id, app_metadata=None):
         
         # Insert usage record
         cursor.execute("""
-        INSERT INTO usage (display_name, username, email, app_name, app_category, app_action, usage_time, reporting_period, session_id)
+        INSERT INTO ai_portal_usage (display_name, username, email, app_name, app_category, app_action, usage_time, reporting_period, session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             display_name,

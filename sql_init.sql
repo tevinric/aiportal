@@ -3,7 +3,7 @@
 -- Create logins table for user authentication tracking
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'logins')
 BEGIN
-    CREATE TABLE logins (
+    CREATE TABLE ai_portal_logins (
         id INT IDENTITY(1,1) PRIMARY KEY,
         display_name NVARCHAR(255),
         username NVARCHAR(255),
@@ -17,16 +17,16 @@ BEGIN
     );
     
     -- Add index for efficient querying
-    CREATE INDEX idx_logins_email ON logins(email);
-    CREATE INDEX idx_logins_reporting_period ON logins(reporting_period);
-    CREATE INDEX idx_logins_login_time ON logins(login_time);
-    CREATE INDEX idx_logins_session_id ON logins(session_id);
+    CREATE INDEX idx_logins_email ON ai_portal_logins(email);
+    CREATE INDEX idx_logins_reporting_period ON ai_portal_logins(reporting_period);
+    CREATE INDEX idx_logins_login_time ON ai_portal_logins(login_time);
+    CREATE INDEX idx_logins_session_id ON ai_portal_logins(session_id);
 END
 
 -- Create usage table for app interaction tracking
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'usage')
 BEGIN
-    CREATE TABLE usage (
+    CREATE TABLE ai_portal_usage (
         id INT IDENTITY(1,1) PRIMARY KEY,
         display_name NVARCHAR(255),
         username NVARCHAR(255),
@@ -40,12 +40,12 @@ BEGIN
     );
     
     -- Add indexes for efficient querying
-    CREATE INDEX idx_usage_email ON usage(email);
-    CREATE INDEX idx_usage_app_name ON usage(app_name);
-    CREATE INDEX idx_usage_app_category ON usage(app_category);
-    CREATE INDEX idx_usage_reporting_period ON usage(reporting_period);
-    CREATE INDEX idx_usage_usage_time ON usage(usage_time);
-    CREATE INDEX idx_usage_session_id ON usage(session_id);
+    CREATE INDEX idx_usage_email ON ai_portal_usage(email);
+    CREATE INDEX idx_usage_app_name ON ai_portal_usage(app_name);
+    CREATE INDEX idx_usage_app_category ON ai_portal_usage(app_category);
+    CREATE INDEX idx_usage_reporting_period ON ai_portal_usage(reporting_period);
+    CREATE INDEX idx_usage_usage_time ON ai_portal_usage(usage_time);
+    CREATE INDEX idx_usage_session_id ON ai_portal_usage(session_id);
 END
 
 -- Create view for user statistics
@@ -62,7 +62,7 @@ BEGIN
         MAX(login_time) AS last_login,
         reporting_period
     FROM 
-        logins
+        ai_portal_logins
     GROUP BY 
         email, display_name, reporting_period;');
 END
@@ -78,7 +78,7 @@ BEGIN
         COUNT(DISTINCT email) AS unique_users,
         reporting_period
     FROM 
-        usage
+        ai_portal_usage
     GROUP BY 
         app_name, app_category, reporting_period;');
 END
@@ -97,7 +97,7 @@ BEGIN
         MAX(u.usage_time) AS last_interaction,
         u.reporting_period
     FROM 
-        usage u
+        ai_portal_usage u
     GROUP BY 
         u.email, u.display_name, u.app_name, u.app_category, u.reporting_period;');
 END
@@ -126,7 +126,7 @@ BEGIN
             (SELECT TOP 1 app_name FROM usage u WHERE u.email = l.email AND u.reporting_period = @reporting_period 
              GROUP BY app_name ORDER BY COUNT(*) DESC) AS most_used_app
         FROM
-            logins l
+            ai_portal_logins l
         WHERE
             l.reporting_period = @reporting_period
         GROUP BY
