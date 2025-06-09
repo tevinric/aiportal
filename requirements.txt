@@ -11,4 +11,6 @@ langchain-community
 langchain-openai
 faiss_cpu
 msal
+pyodbc
+uuid
 azure.cognitiveservices.speech
