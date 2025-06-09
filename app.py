@@ -579,6 +579,12 @@ def render_app_gallery():
         
 def main():
     if st.session_state.get("authenticated", False):
+    
+        # st.session_state["authenticated"] = True
+        # st.session_state["display_name"] = "tester"
+        # st.session_state["user_email"] = "tester@tester.co.za"
+        # st.session_state["user_department"] ="Test"
+
         
         # UPDATED: Initialize session for duplicate prevention
         initialize_session()
@@ -787,7 +793,9 @@ def main():
                             "parent_app": "OCR",
                             "sub_app": doc_app
                         }
-                        log_app_usage(f"ocr_{doc_app.lower().replace(' ', '_').replace(\"'\", '')}", sub_app_metadata)
+                        # FIX: Use single quotes inside replace or assign to a variable first
+                        doc_app_key = doc_app.lower().replace(' ', '_').replace("'", '')
+                        log_app_usage(f"ocr_{doc_app_key}", sub_app_metadata)
                     
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
