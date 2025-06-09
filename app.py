@@ -4,13 +4,11 @@ import base64
 from login_ui import login_ui
 from typing import Dict, List
 from pathlib import Path
-
-
 import requests
 import Functions
-
 import config
 from PIL import Image
+import db_utils
 
 def configure_page_settings(image_file, page_title, favicon):
     # First initialize session state if not already done
@@ -303,6 +301,42 @@ def load_image(image_name: str) -> Image.Image or None:
         st.error(f"Error loading image {image_name}: {str(e)}")
         return None
 
+def track_app_selection():
+    """Track when the user selects a different app"""
+    if "previous_app" not in st.session_state:
+        st.session_state.previous_app = "None"
+        
+    if st.session_state.get("authenticated", False) and st.session_state.get("selected_app") != st.session_state.previous_app:
+        # App selection has changed, log it
+        app_id = st.session_state.get("selected_app")
+        if app_id and app_id != "None":
+            app_metadata = APP_METADATA.get(app_id, {})
+            db_utils.log_app_usage(app_id, app_metadata)
+        
+        # Update previous app
+        st.session_state.previous_app = st.session_state.get("selected_app")
+
+def track_sub_app_selection(sidebar_value, sub_app):
+    """Track when the user selects a different sub-app"""
+    if "previous_sub_app" not in st.session_state:
+        st.session_state.previous_sub_app = {}
+    
+    # Create a unique key for this sidebar/sub-app combination
+    key = f"{sidebar_value}_{sub_app}"
+    
+    # Check if this is a new selection
+    if st.session_state.get("authenticated", False) and st.session_state.previous_sub_app.get(sidebar_value) != sub_app:
+        # Find the app_id for this sidebar/sub-app combination
+        app_id = next((app_id for app_id, metadata in APP_METADATA.items() 
+                     if metadata['sidebar_value'] == sidebar_value and metadata.get('sub_app') == sub_app), None)
+        
+        if app_id:
+            app_metadata = APP_METADATA.get(app_id, {})
+            db_utils.log_app_usage(app_id, app_metadata)
+        
+        # Update previous sub-app
+        st.session_state.previous_sub_app[sidebar_value] = sub_app
+
 def create_app_card(app_id: str, metadata: Dict) -> None:
     with st.container():
         st.markdown("""
@@ -405,6 +439,10 @@ def create_app_card(app_id: str, metadata: Dict) -> None:
             st.session_state.selected_app = app_id
             st.session_state.selected_tool = metadata['sidebar_value']
             st.session_state.selected_sub_app = metadata['sub_app'] if metadata['sub_app'] else "None"
+            
+            # Log app usage
+            db_utils.log_app_usage(app_id, metadata)
+            
             st.rerun()
               
         st.markdown('</div>', unsafe_allow_html=True)
@@ -425,6 +463,7 @@ def search_apps(query: str, metadata: Dict) -> List[str]:
             results.append(app_id)
                 
     return results
+
 def render_app_gallery():
     """Render the app gallery home page in a 3x2 grid"""
     
@@ -510,7 +549,7 @@ def render_app_gallery():
 def main():
     if st.session_state.get("authenticated", False):
     
-    # Initialize all session states first
+        # Initialize all session states first
         if "selected_app" not in st.session_state:
             st.session_state.selected_app = "None"
         if "selected_tool" not in st.session_state:
@@ -519,6 +558,12 @@ def main():
             st.session_state.selected_sub_app = "None"
         if "authenticated" not in st.session_state:
             st.session_state.authenticated = False
+            
+        # Make APP_METADATA available in session state for logging
+        st.session_state.APP_METADATA = APP_METADATA
+            
+        # Track app selection changes
+        track_app_selection()
             
         # Sidebar
         st.sidebar.image("static/GAIA6.png", width=110)
@@ -545,6 +590,14 @@ def main():
                 
         # Update selected tool if changed
         if selected_tool != st.session_state.selected_tool:
+            # Track tool selection change
+            if st.session_state.get("authenticated", False):
+                # Find any app that matches this tool for logging purposes
+                tool_app_id = next((app_id for app_id, metadata in APP_METADATA.items() 
+                                if metadata['sidebar_value'] == selected_tool), None)
+                if tool_app_id:
+                    db_utils.log_app_usage(tool_app_id, APP_METADATA[tool_app_id])
+            
             st.session_state.selected_tool = selected_tool
             st.session_state.selected_sub_app = "None"
             st.rerun()
@@ -564,6 +617,9 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if gpt_app != st.session_state.selected_sub_app:
+                    # Track sub-app selection
+                    track_sub_app_selection("ChatGPT", gpt_app)
+                    
                     st.session_state.selected_sub_app = gpt_app
                     st.rerun()
                     
@@ -583,6 +639,9 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if business_app != st.session_state.selected_sub_app:
+                    # Track sub-app selection
+                    track_sub_app_selection("Business Apps", business_app)
+                    
                     st.session_state.selected_sub_app = business_app
                     st.rerun()
                 
@@ -609,6 +668,9 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
+                    # Track sub-app selection
+                    track_sub_app_selection("Document Intelligence", doc_app)
+                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
@@ -631,6 +693,9 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if audio_app != st.session_state.selected_sub_app:
+                    # Track sub-app selection
+                    track_sub_app_selection("Audio analysis", audio_app)
+                    
                     st.session_state.selected_sub_app = audio_app
                     st.rerun()
                     
@@ -651,6 +716,9 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
+                    # Track sub-app selection
+                    track_sub_app_selection("OCR", doc_app)
+                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
