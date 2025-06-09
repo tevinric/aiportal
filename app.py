@@ -4,11 +4,16 @@ import base64
 from login_ui import login_ui
 from typing import Dict, List
 from pathlib import Path
+import uuid
+import time
+import json
+from datetime import datetime
+
 import requests
 import Functions
+
 import config
 from PIL import Image
-import db_utils
 
 def configure_page_settings(image_file, page_title, favicon):
     # First initialize session state if not already done
@@ -238,18 +243,6 @@ APP_METADATA = {
         "tags": ["OCR", "Vehicle License", "License Disc", "Data Extraction"],
         "api_available": True
     },
-    # "ocr_identity_smart_card": {
-    #     "name": "OCR - ID Smart Card",
-    #     "description": "Use OCR to extract data from a South African ID Smart Card",
-    #     "image_name": "vehicle_license_disc_ocr.png",
-    #     "fallback_emoji": "🎵",
-    #     "category": "Data Extraction",
-    #     "sidebar_value": "OCR",
-    #     "parent_app": "OCR",
-    #     "sub_app": "ID Smart Card",
-    #     "tags": ["OCR", "SA ID", "Smart ID", "Data Extraction"],
-    #     "api_available": True
-    # },
     "claims_decisioning_chatbot": {
         "name": "Claims Decisioning Chatbot",
         "description": "AI Chatbot trained on claims decisioning documentation to assist with claims queries",
@@ -288,6 +281,102 @@ APP_METADATA = {
     }
 }
 
+# ============================================================================
+# DUPLICATE PREVENTION FUNCTIONS - NEW CODE
+# ============================================================================
+
+def initialize_session():
+    """Initialize session with unique identifier and tracking"""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = f"{uuid.uuid4()}_{int(time.time())}"
+    
+    if "logged_interactions" not in st.session_state:
+        st.session_state.logged_interactions = set()
+    
+    if "last_app_selection" not in st.session_state:
+        st.session_state.last_app_selection = None
+
+def log_app_usage(app_id, metadata=None):
+    """
+    Log application usage with comprehensive duplicate prevention
+    """
+    try:
+        user_id = st.session_state.get("user_email", "anonymous")
+        session_id = st.session_state.session_id
+        
+        # Create unique interaction identifier for this session
+        interaction_key = f"{app_id}_{user_id}_{session_id}"
+        
+        # Check if already logged in this session
+        if interaction_key in st.session_state.logged_interactions:
+            return False
+        
+        # Check if this is the same as last selection (prevent rapid duplicates)
+        current_selection = {
+            'app_id': app_id,
+            'timestamp': time.time()
+        }
+        
+        last_selection = st.session_state.last_app_selection
+        if (last_selection and 
+            last_selection['app_id'] == app_id and 
+            (current_selection['timestamp'] - last_selection['timestamp']) < 2):  # 2 second cooldown
+            return False
+        
+        # Your database logging code here - replace with your actual implementation
+        success = insert_usage_log(app_id, user_id, session_id, metadata)
+        
+        if success:
+            # Mark as logged
+            st.session_state.logged_interactions.add(interaction_key)
+            st.session_state.last_app_selection = current_selection
+            return True
+            
+    except Exception as e:
+        print(f"Logging error: {e}")
+        
+    return False
+
+def insert_usage_log(app_id, user_id, session_id, metadata):
+    """
+    Replace this function with your actual database insertion code
+    """
+    try:
+        # TODO: Replace with your actual database logging code
+        # Example - replace with your database code:
+        # cursor.execute("""
+        #     INSERT IGNORE INTO ai_portal_usage 
+        #     (app_id, user_id, session_id, timestamp, metadata, ip_address)
+        #     VALUES (%s, %s, %s, %s, %s, %s)
+        # """, (app_id, user_id, session_id, datetime.now(), json.dumps(metadata), get_client_ip()))
+        # connection.commit()
+        
+        print(f"[USAGE LOG] App: {app_id}, User: {user_id}, Session: {session_id}")  # Replace with actual DB call
+        return True
+        
+    except Exception as e:
+        print(f"Database insert error: {e}")
+        return False
+
+def safe_app_selection(app_id, metadata):
+    """
+    Safely handle app selection with logging and session state updates
+    """
+    # Log usage first (before any session state changes)
+    log_success = log_app_usage(app_id, metadata)
+    
+    # Update session state only after logging attempt
+    st.session_state.selected_app = app_id
+    st.session_state.selected_tool = metadata['sidebar_value']
+    st.session_state.selected_sub_app = metadata['sub_app'] if metadata['sub_app'] else "None"
+    
+    # Single rerun
+    st.rerun()
+
+# ============================================================================
+# END OF DUPLICATE PREVENTION FUNCTIONS
+# ============================================================================
+
 def load_image(image_name: str) -> Image.Image or None:
     """Load an image from the images directory with error handling"""
     try:
@@ -300,42 +389,6 @@ def load_image(image_name: str) -> Image.Image or None:
     except Exception as e:
         st.error(f"Error loading image {image_name}: {str(e)}")
         return None
-
-def track_app_selection():
-    """Track when the user selects a different app"""
-    if "previous_app" not in st.session_state:
-        st.session_state.previous_app = "None"
-        
-    if st.session_state.get("authenticated", False) and st.session_state.get("selected_app") != st.session_state.previous_app:
-        # App selection has changed, log it
-        app_id = st.session_state.get("selected_app")
-        if app_id and app_id != "None":
-            app_metadata = APP_METADATA.get(app_id, {})
-            db_utils.log_app_usage(app_id, app_metadata)
-        
-        # Update previous app
-        st.session_state.previous_app = st.session_state.get("selected_app")
-
-def track_sub_app_selection(sidebar_value, sub_app):
-    """Track when the user selects a different sub-app"""
-    if "previous_sub_app" not in st.session_state:
-        st.session_state.previous_sub_app = {}
-    
-    # Create a unique key for this sidebar/sub-app combination
-    key = f"{sidebar_value}_{sub_app}"
-    
-    # Check if this is a new selection
-    if st.session_state.get("authenticated", False) and st.session_state.previous_sub_app.get(sidebar_value) != sub_app:
-        # Find the app_id for this sidebar/sub-app combination
-        app_id = next((app_id for app_id, metadata in APP_METADATA.items() 
-                     if metadata['sidebar_value'] == sidebar_value and metadata.get('sub_app') == sub_app), None)
-        
-        if app_id:
-            app_metadata = APP_METADATA.get(app_id, {})
-            db_utils.log_app_usage(app_id, app_metadata)
-        
-        # Update previous sub-app
-        st.session_state.previous_sub_app[sidebar_value] = sub_app
 
 def create_app_card(app_id: str, metadata: Dict) -> None:
     with st.container():
@@ -435,15 +488,9 @@ def create_app_card(app_id: str, metadata: Dict) -> None:
         if metadata['parent_app'] != metadata['name']:
             st.markdown(f"<small>**Part of:** {metadata['parent_app']}</small>", unsafe_allow_html=True)
         
+        # UPDATED: Use safe app selection instead of direct session state updates
         if st.button("Launch App", key=f"btn_{app_id}"):
-            st.session_state.selected_app = app_id
-            st.session_state.selected_tool = metadata['sidebar_value']
-            st.session_state.selected_sub_app = metadata['sub_app'] if metadata['sub_app'] else "None"
-            
-            # Log app usage
-            db_utils.log_app_usage(app_id, metadata)
-            
-            st.rerun()
+            safe_app_selection(app_id, metadata)
               
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -547,12 +594,11 @@ def render_app_gallery():
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)        
         
 def main():
-    # if st.session_state.get("authenticated", False):
-        st.session_state["authenticated"] = True
-        st.session_state["display_name"] = "Tester"
-        st.session_state["user_email"] = "test@tester.com"
-        st.session_state["user_department"] = "Testing"
-
+    if st.session_state.get("authenticated", False):
+        
+        # UPDATED: Initialize session for duplicate prevention
+        initialize_session()
+    
         # Initialize all session states first
         if "selected_app" not in st.session_state:
             st.session_state.selected_app = "None"
@@ -562,12 +608,6 @@ def main():
             st.session_state.selected_sub_app = "None"
         if "authenticated" not in st.session_state:
             st.session_state.authenticated = False
-            
-        # Make APP_METADATA available in session state for logging
-        st.session_state.APP_METADATA = APP_METADATA
-            
-        # Track app selection changes
-        track_app_selection()
             
         # Sidebar
         st.sidebar.image("static/GAIA6.png", width=110)
@@ -592,15 +632,13 @@ def main():
             index=available_tools.index(st.session_state.selected_tool)
         )
                 
-        # Update selected tool if changed
+        # UPDATED: Safer tool selection update with duplicate prevention
         if selected_tool != st.session_state.selected_tool:
-            # Track tool selection change
-            if st.session_state.get("authenticated", False):
-                # Find any app that matches this tool for logging purposes
-                tool_app_id = next((app_id for app_id, metadata in APP_METADATA.items() 
-                                if metadata['sidebar_value'] == selected_tool), None)
-                if tool_app_id:
-                    db_utils.log_app_usage(tool_app_id, APP_METADATA[tool_app_id])
+            user_id = st.session_state.get("user_email", "anonymous")
+            
+            # Optional: Log tool selection if needed (uncomment if you want to track tool selections)
+            # if log_app_usage(f"tool_{selected_tool}", {"tool_name": selected_tool, "action": "tool_selection"}):
+            #     print(f"Tool selection logged: {selected_tool}")
             
             st.session_state.selected_tool = selected_tool
             st.session_state.selected_sub_app = "None"
@@ -621,9 +659,6 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if gpt_app != st.session_state.selected_sub_app:
-                    # Track sub-app selection
-                    track_sub_app_selection("ChatGPT", gpt_app)
-                    
                     st.session_state.selected_sub_app = gpt_app
                     st.rerun()
                     
@@ -643,9 +678,6 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if business_app != st.session_state.selected_sub_app:
-                    # Track sub-app selection
-                    track_sub_app_selection("Business Apps", business_app)
-                    
                     st.session_state.selected_sub_app = business_app
                     st.rerun()
                 
@@ -672,9 +704,6 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
-                    # Track sub-app selection
-                    track_sub_app_selection("Document Intelligence", doc_app)
-                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
@@ -697,9 +726,6 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if audio_app != st.session_state.selected_sub_app:
-                    # Track sub-app selection
-                    track_sub_app_selection("Audio analysis", audio_app)
-                    
                     st.session_state.selected_sub_app = audio_app
                     st.rerun()
                     
@@ -720,9 +746,6 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
-                    # Track sub-app selection
-                    track_sub_app_selection("OCR", doc_app)
-                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
@@ -745,8 +768,8 @@ def main():
             else:
                 pass    
             
-    # else:
-    #     login_ui()
+    else:
+        login_ui()
 
 if __name__ == '__main__':
     if "authenticated" not in st.session_state:
