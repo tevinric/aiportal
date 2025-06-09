@@ -8,4 +8,4 @@ variables:
     webAppName: 'aiapp-dev'
 
     # ACR CONFIG VARS
-    containerRegistryServiceConnection: 'DNACRDEV'
+    containerRegistryServiceConnection: 'DNAACRSIT'

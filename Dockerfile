@@ -43,6 +43,12 @@ ENV STREAMLIT_SERVER_HEADLESS=true
 
 EXPOSE 8501
 
+# Ensure /app and /tmp are writable
+RUN chmod -R 777 /app /tmp
+
+# Optionally, set TMPDIR to /tmp for temp files
+ENV TMPDIR=/tmp
+
 # Pip command without proxy setting
 RUN pip install --no-cache-dir -r requirements.txt
 

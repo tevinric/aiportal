@@ -508,7 +508,7 @@ def render_app_gallery():
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)        
         
 def main():
-    # if st.session_state.get("authenticated", False):
+    if st.session_state.get("authenticated", False):
     
     # Initialize all session states first
         if "selected_app" not in st.session_state:
@@ -671,10 +671,10 @@ def main():
                 tts_app.text_to_speech(client)
             
             else:
-                pass
+                pass    
             
-    # else:
-    #     login_ui()
+    else:
+        login_ui()
 
 if __name__ == '__main__':
     if "authenticated" not in st.session_state:
