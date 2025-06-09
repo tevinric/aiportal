@@ -3,6 +3,8 @@ import streamlit as st
 from msal import ConfidentialClientApplication
 import os
 import base64
+import db_utils
+from datetime import datetime
 
 from config import AAD_CLIENT_ID, AAD_CLIENT_SECRET, AAD_TENANT_ID, REDIRECT_URI
 
@@ -84,7 +86,25 @@ def fetch_user_data(access_token):
     headers = {"Authorization": f"Bearer {access_token}"}
     graph_api_endpoint = "https://graph.microsoft.com/v1.0/me"
     response = requests.get(graph_api_endpoint, headers=headers)
-    return response.json()
+    
+    # Get extended user data including department
+    try:
+        user_data = response.json()
+        
+        # If department is not in the basic profile, try to get it from extended attributes
+        if 'department' not in user_data:
+            # Call the beta endpoint which might have more attributes
+            extended_endpoint = "https://graph.microsoft.com/beta/me"
+            extended_response = requests.get(extended_endpoint, headers=headers)
+            if extended_response.status_code == 200:
+                extended_data = extended_response.json()
+                if 'department' in extended_data:
+                    user_data['department'] = extended_data['department']
+        
+        return user_data
+    except Exception as e:
+        st.error(f"Error fetching user data: {str(e)}")
+        return response.json()  # Return the original response as fallback
 
 def authentication_process(app):
     scopes = ["User.Read"]
@@ -108,6 +128,10 @@ def authentication_process(app):
         token_result = acquire_access_token(app, st.session_state.auth_code, scopes, redirect_uri)
         if "access_token" in token_result:
             user_data = fetch_user_data(token_result["access_token"])
+            
+            # Log the user login to the database
+            db_utils.log_user_login(user_data)
+            
             return user_data
         else:
             st.error("Authentication failed. Please try again.")
@@ -185,6 +209,14 @@ def login_ui():
             st.session_state["authenticated"] = True
             st.session_state["display_name"] = user_data.get("displayName")
             st.session_state["user_email"] = user_data.get("mail")
+            
+            # Add department if available in the user_data
+            if "department" in user_data:
+                st.session_state["user_department"] = user_data.get("department")
+            
+            # Log successful login
+            db_utils.log_user_login(user_data)
+            
             st.rerun()
     
     
@@ -206,6 +238,3 @@ def login_ui():
         ),
         unsafe_allow_html=True
     )
-
-# if __name__ == "__main__":
-#     login_ui()
