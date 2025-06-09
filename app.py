@@ -11,6 +11,7 @@ from datetime import datetime
 
 import requests
 import Functions
+import db_utils
 
 import config
 from PIL import Image
@@ -282,7 +283,7 @@ APP_METADATA = {
 }
 
 # ============================================================================
-# DUPLICATE PREVENTION FUNCTIONS - NEW CODE
+# DUPLICATE PREVENTION FUNCTIONS - ENHANCED WITH DATABASE INTEGRATION
 # ============================================================================
 
 def initialize_session():
@@ -295,6 +296,10 @@ def initialize_session():
     
     if "last_app_selection" not in st.session_state:
         st.session_state.last_app_selection = None
+    
+    # Make APP_METADATA available in session state for db_utils
+    if "APP_METADATA" not in st.session_state:
+        st.session_state.APP_METADATA = APP_METADATA
 
 def log_app_usage(app_id, metadata=None):
     """
@@ -323,8 +328,8 @@ def log_app_usage(app_id, metadata=None):
             (current_selection['timestamp'] - last_selection['timestamp']) < 2):  # 2 second cooldown
             return False
         
-        # Your database logging code here - replace with your actual implementation
-        success = insert_usage_log(app_id, user_id, session_id, metadata)
+        # Use the actual db_utils function for database logging
+        success = db_utils.log_app_usage(app_id, metadata)
         
         if success:
             # Mark as logged
@@ -336,27 +341,6 @@ def log_app_usage(app_id, metadata=None):
         print(f"Logging error: {e}")
         
     return False
-
-def insert_usage_log(app_id, user_id, session_id, metadata):
-    """
-    Replace this function with your actual database insertion code
-    """
-    try:
-        # TODO: Replace with your actual database logging code
-        # Example - replace with your database code:
-        # cursor.execute("""
-        #     INSERT IGNORE INTO ai_portal_usage 
-        #     (app_id, user_id, session_id, timestamp, metadata, ip_address)
-        #     VALUES (%s, %s, %s, %s, %s, %s)
-        # """, (app_id, user_id, session_id, datetime.now(), json.dumps(metadata), get_client_ip()))
-        # connection.commit()
-        
-        print(f"[USAGE LOG] App: {app_id}, User: {user_id}, Session: {session_id}")  # Replace with actual DB call
-        return True
-        
-    except Exception as e:
-        print(f"Database insert error: {e}")
-        return False
 
 def safe_app_selection(app_id, metadata):
     """
@@ -659,6 +643,16 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if gpt_app != st.session_state.selected_sub_app:
+                    # Log sub-app selection
+                    if gpt_app != "None":
+                        sub_app_metadata = {
+                            "name": gpt_app,
+                            "category": "Natural Language Processing", 
+                            "parent_app": "ChatGPT",
+                            "sub_app": gpt_app
+                        }
+                        log_app_usage(f"chatgpt_{gpt_app.lower().replace(' ', '_')}", sub_app_metadata)
+                    
                     st.session_state.selected_sub_app = gpt_app
                     st.rerun()
                     
@@ -678,6 +672,16 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if business_app != st.session_state.selected_sub_app:
+                    # Log sub-app selection
+                    if business_app != "None":
+                        sub_app_metadata = {
+                            "name": business_app,
+                            "category": "Business Applications" if business_app == "Test Case Generator" else "Chatbot", 
+                            "parent_app": "Business Apps",
+                            "sub_app": business_app
+                        }
+                        log_app_usage(f"business_{business_app.lower().replace(' ', '_')}", sub_app_metadata)
+                    
                     st.session_state.selected_sub_app = business_app
                     st.rerun()
                 
@@ -704,6 +708,16 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
+                    # Log sub-app selection
+                    if doc_app != "None":
+                        sub_app_metadata = {
+                            "name": doc_app,
+                            "category": "Document Analysis", 
+                            "parent_app": "Document Intelligence",
+                            "sub_app": doc_app
+                        }
+                        log_app_usage(f"doc_{doc_app.lower().replace(' ', '_')}", sub_app_metadata)
+                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
@@ -726,6 +740,16 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if audio_app != st.session_state.selected_sub_app:
+                    # Log sub-app selection
+                    if audio_app != "None":
+                        sub_app_metadata = {
+                            "name": audio_app,
+                            "category": "Audio Processing", 
+                            "parent_app": "Audio analysis",
+                            "sub_app": audio_app
+                        }
+                        log_app_usage(f"audio_{audio_app.lower().replace(' ', '_')}", sub_app_metadata)
+                    
                     st.session_state.selected_sub_app = audio_app
                     st.rerun()
                     
@@ -734,6 +758,15 @@ def main():
                     stt_app.speech_to_text(client)
                     
             elif st.session_state.selected_tool == "Image Generation":
+                # Log standalone app usage
+                standalone_metadata = {
+                    "name": "Image Generation",
+                    "category": "Computer Vision",
+                    "parent_app": "Image Generation",
+                    "sub_app": None
+                }
+                log_app_usage("image_generation", standalone_metadata)
+                
                 import functions.image_generation.image_gen as image_gen
                 image_gen.image_generation(client)
             
@@ -746,6 +779,16 @@ def main():
                             st.session_state.selected_sub_app)
                     )
                 if doc_app != st.session_state.selected_sub_app:
+                    # Log sub-app selection
+                    if doc_app != "None":
+                        sub_app_metadata = {
+                            "name": f"OCR - {doc_app}",
+                            "category": "Data Extraction", 
+                            "parent_app": "OCR",
+                            "sub_app": doc_app
+                        }
+                        log_app_usage(f"ocr_{doc_app.lower().replace(' ', '_').replace(\"'\", '')}", sub_app_metadata)
+                    
                     st.session_state.selected_sub_app = doc_app
                     st.rerun()
                     
@@ -762,6 +805,15 @@ def main():
                     vehicle_license_disc.ocr_vehicle_license()
 
             elif st.session_state.selected_tool == "Text To Speech":
+                # Log standalone app usage
+                standalone_metadata = {
+                    "name": "Text To Speech",
+                    "category": "Audio Processing",
+                    "parent_app": "Text To Speech",
+                    "sub_app": None
+                }
+                log_app_usage("text_to_speech", standalone_metadata)
+                
                 import functions.tts.tts_app as tts_app
                 tts_app.text_to_speech(client)
             
